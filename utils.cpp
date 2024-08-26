@@ -27,14 +27,28 @@ void Logger::operator()(Args&&... args) const
 {
     std::string_view file_name = loc_.file_name();
     file_name.remove_prefix(file_name.rfind('/') + 1);
-    std::clog << file_name << ':' << loc_.line() << ": ";
-    (std::clog << ... << std::forward<Args>(args));
-    std::clog << '\n';
+    if constexpr (sizeof...(args) == 0)
+    {
+        std::clog << file_name << ':' << loc_.line() << '\n';
+    }
+    else
+    {
+        std::clog << file_name << ':' << loc_.line() << ": ";
+        (std::clog << ... << std::forward<Args>(args));
+        std::clog << '\n';
+    }
 }
 
 void ErrorLogger::operator()(xcb_generic_error_t* err) const
 {
-    Logger::operator()(error_string(err->error_code), ": ", msg_);
+    if (msg_.empty())
+    {
+        Logger::operator()(error_string(err->error_code));
+    }
+    else
+    {
+        Logger::operator()(error_string(err->error_code), ": ", msg_);
+    }
 }
 
 std::string_view error_string(std::uint8_t error_code) noexcept

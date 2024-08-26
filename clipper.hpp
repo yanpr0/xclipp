@@ -58,7 +58,7 @@ private:
 
     void Await(
         xcb_void_cookie_t cookie,
-        std::string_view msg,
+        std::string_view msg = {},
         std::source_location loc = std::source_location::current());
 
     template <std::invocable<xcb_generic_error_t*> Handler>

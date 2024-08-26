@@ -248,7 +248,10 @@ auto Clipper::Await(
         std::free(err);
         std::string_view file_name = loc.file_name();
         file_name.remove_prefix(file_name.rfind('/') + 1);
-        std::string what = std::format("{}:{}: {}: {}", file_name, loc.line(), error_string(err_code), err_msg);
+        std::string what =
+            err_msg.empty() ?
+            std::format("{}:{}: {}", file_name, loc.line(), error_string(err_code)) :
+            std::format("{}:{}: {}: {}", file_name, loc.line(), error_string(err_code), err_msg);
         throw std::runtime_error(std::move(what));
     }
     if constexpr (std::is_same_v<void, std::invoke_result_t<Callback, Reply*>>)
@@ -312,7 +315,10 @@ void Clipper::Await(xcb_void_cookie_t cookie, std::string_view err_msg, std::sou
         std::free(err);
         std::string_view file_name = loc.file_name();
         file_name.remove_prefix(file_name.rfind('/') + 1);
-        std::string what = std::format("{}:{}: {}: {}", file_name, loc.line(), error_string(err_code), err_msg);
+        std::string what =
+            err_msg.empty() ?
+            std::format("{}:{}: {}", file_name, loc.line(), error_string(err_code)) :
+            std::format("{}:{}: {}: {}", file_name, loc.line(), error_string(err_code), err_msg);
         throw std::runtime_error(std::move(what));
     }
 }
