@@ -41,7 +41,8 @@ private:
         Reply*(*reply_getter)(xcb_connection_t*, Cookie, xcb_generic_error_t**),
         Callback&& callback,
         std::string_view msg = {},
-        std::source_location loc = std::source_location::current()) -> std::remove_reference_t<std::invoke_result_t<Callback, Reply*>>;
+        std::source_location loc = std::source_location::current()) ->
+            std::remove_reference_t<std::invoke_result_t<Callback, Reply*>>;
 
     template <class Reply, class Cookie, std::invocable<Reply*> Callback, std::invocable<xcb_generic_error_t*> Handler>
     auto Await(
@@ -55,7 +56,10 @@ private:
                 std::optional<std::remove_reference_t<std::invoke_result_t<Callback, Reply*>>>
             >;
 
-    void Await(xcb_void_cookie_t cookie, std::string_view msg, std::source_location loc = std::source_location::current());
+    void Await(
+        xcb_void_cookie_t cookie,
+        std::string_view msg,
+        std::source_location loc = std::source_location::current());
 
     template <std::invocable<xcb_generic_error_t*> Handler>
     bool Await(xcb_void_cookie_t cookie, Handler&& handler);

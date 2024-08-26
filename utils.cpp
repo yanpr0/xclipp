@@ -64,7 +64,8 @@ std::string_view error_string(std::uint8_t error_code) noexcept
 
 bool is_icccm_string(std::string_view data) noexcept
 {
-    return std::ranges::all_of(data, [](unsigned char c) { return (0x20 <= c && c <= 0x7E) || 0xA0 <= c || c == '\n' || c == '\t'; });    
+    return std::ranges::all_of(
+        data, [](unsigned char c) { return (0x20 <= c && c <= 0x7E) || 0xA0 <= c || c == '\n' || c == '\t'; });
 }
 
 bool is_icccm_utf8_string(std::string_view data) noexcept

@@ -46,13 +46,14 @@ Clipper::Clipper(std::string_view data, bool is_file) :
     xcb_prefetch_maximum_request_length(connection_.get());
 
     xcb_screen_t *screen = nullptr;
-    for (auto it = xcb_setup_roots_iterator(xcb_get_setup(connection_.get())); it.rem > 0; --screen_id, xcb_screen_next(&it))
+    for (auto it = xcb_setup_roots_iterator(xcb_get_setup(connection_.get())); it.rem > 0; xcb_screen_next(&it))
     {
         if (screen_id == 0)
         {
             screen = it.data;
             break;
         }
+        --screen_id;
     }
     if (screen == nullptr)
     {
@@ -97,7 +98,8 @@ Clipper::Clipper(std::string_view data, bool is_file) :
     xcb_intern_atom_cookie_t incr_cookie = xcb_intern_atom(connection_.get(), 0, 4, "INCR");
 
     // trigger event to get timestamp for selection acquiring
-    auto time_cookie = xcb_change_property_checked(connection_.get(), XCB_PROP_MODE_REPLACE, owner_, XCB_ATOM_PRIMARY, XCB_ATOM_PRIMARY, 8, 0, nullptr);
+    auto time_cookie = xcb_change_property_checked(
+        connection_.get(), XCB_PROP_MODE_REPLACE, owner_, XCB_ATOM_PRIMARY, XCB_ATOM_PRIMARY, 8, 0, nullptr);
 
     xcb_flush(connection_.get());
 
@@ -106,7 +108,9 @@ Clipper::Clipper(std::string_view data, bool is_file) :
     std::unordered_map<std::string_view, xcb_atom_t> targets;
     for (auto t : required_targets)
     {
-        targets[t] = Await(target_cookies[t], xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom, std::format("Failed to get {} atom", t));
+        targets[t] = Await(
+            target_cookies[t], xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom,
+            std::format("Failed to get {} atom", t));
     }
     for (auto& [t, cookie] : target_cookies)
     {
@@ -114,21 +118,26 @@ Clipper::Clipper(std::string_view data, bool is_file) :
         {
             continue;
         }
-        auto atom = Await(cookie, xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom, ErrorLogger{std::format("Failed to get {} atom", t)});
+        auto atom = Await(
+            cookie, xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom,
+            ErrorLogger{std::format("Failed to get {} atom", t)});
         if (atom)
         {
             targets[t] = *atom;
         }
     }
-    clipboard_atom_ = Await(clipboard_cookie, xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom, "Failed to get CLIPBOARD atom");
-    atom_pair_atom_ = Await(atom_pair_cookie, xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom, "Failed to get ATOM_PAIR atom");
+    clipboard_atom_ = Await(
+        clipboard_cookie, xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom, "Failed to get CLIPBOARD atom");
+    atom_pair_atom_ = Await(
+        atom_pair_cookie, xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom, "Failed to get ATOM_PAIR atom");
     incr_atom_ = Await(incr_cookie, xcb_intern_atom_reply, &xcb_intern_atom_reply_t::atom, "Failed to get INCR atom");
 
     Await(time_cookie, "Failed to get server timestamp by dummy property change");
     xcb_generic_event_t* time_event = nullptr;
     while ((time_event = xcb_wait_for_event(connection_.get())))
     {
-        if (time_event->response_type == XCB_PROPERTY_NOTIFY && reinterpret_cast<xcb_property_notify_event_t*>(time_event)->window == owner_)
+        if (time_event->response_type == XCB_PROPERTY_NOTIFY &&
+            reinterpret_cast<xcb_property_notify_event_t*>(time_event)->window == owner_)
         {
             break;
         }
@@ -141,10 +150,12 @@ Clipper::Clipper(std::string_view data, bool is_file) :
     ownership_timestamp_ = reinterpret_cast<xcb_property_notify_event_t*>(time_event)->time;
     std::free(time_event);
 
-    auto set_owner_cookie = xcb_set_selection_owner_checked(connection_.get(), owner_, clipboard_atom_, ownership_timestamp_);
+    auto set_owner_cookie =
+        xcb_set_selection_owner_checked(connection_.get(), owner_, clipboard_atom_, ownership_timestamp_);
     Await(set_owner_cookie, "Failed to acquire CLIPBOARD selection");
 
-    max_transfer_size_ = 2 * xcb_get_maximum_request_length(connection_.get()); // taking half of max request size (it's in 4-byte words)
+    // taking half of max request size (it's in 4-byte words)
+    max_transfer_size_ = 2 * xcb_get_maximum_request_length(connection_.get());
 
     RegisterHandlers(targets);
 }
@@ -152,7 +163,9 @@ Clipper::Clipper(std::string_view data, bool is_file) :
 void Clipper::Run()
 {
     auto get_owner_cookie = xcb_get_selection_owner(connection_.get(), clipboard_atom_);
-    auto curr_owner = Await(get_owner_cookie, xcb_get_selection_owner_reply, &xcb_get_selection_owner_reply_t::owner, "Failed to get owner of CLIPBOARD selection");
+    auto curr_owner = Await(
+        get_owner_cookie, xcb_get_selection_owner_reply, &xcb_get_selection_owner_reply_t::owner,
+        "Failed to get owner of CLIPBOARD selection");
     if (owner_ != curr_owner)
     {
         return; // outraced by another client or lost ownership in a standard way
@@ -183,7 +196,10 @@ void Clipper::Run()
             {
                 auto notify = reinterpret_cast<xcb_property_notify_event_t*>(event);
                 auto req = req_queues_.find(notify->window);
-                if (req != req_queues_.end() && notify->state == XCB_PROPERTY_DELETE && !req->second.empty() && req->second.front().req->property == notify->atom)
+                if (notify->state == XCB_PROPERTY_DELETE &&
+                    req != req_queues_.end() &&
+                    !req->second.empty() &&
+                    req->second.front().req->property == notify->atom)
                 {
                     req->second.front().is_ready = true;
                 }
@@ -323,7 +339,8 @@ bool Clipper::SendFinishNotification(xcb_selection_request_event_t* req)
     resp.time = req->time;
     resp.property = req->property;
 
-    auto send_cookie = xcb_send_event_checked(connection_.get(), 1, req->requestor, XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<char*>(&resp));
+    auto send_cookie = xcb_send_event_checked(
+        connection_.get(), 1, req->requestor, XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<char*>(&resp));
 
     return Await(send_cookie, ErrorLogger{"Failed to send finish notification"});
 }
@@ -372,7 +389,11 @@ std::optional<bool> Clipper::Transfer(xcb_selection_request_event_t* req)
         if (size <= max_transfer_size_)
         {
             auto change_prop_cookie = xcb_change_property_checked(
-                connection_.get(), XCB_PROP_MODE_REPLACE, req->requestor, req->property, type, format, 8 * size / format, data);
+                connection_.get(),
+                XCB_PROP_MODE_REPLACE,
+                req->requestor,
+                req->property,
+                type, format, 8 * size / format, data);
             if (!Await(change_prop_cookie, ErrorLogger{"Failed to change property"}))
             {
                 return {};
@@ -383,7 +404,9 @@ std::optional<bool> Clipper::Transfer(xcb_selection_request_event_t* req)
 
         // subscribe for notifications about requestor's properties
         xcb_event_mask_t event_mask = XCB_EVENT_MASK_PROPERTY_CHANGE;
-        auto subscribe_for_prop_cookie = xcb_change_window_attributes(connection_.get(), req->requestor, XCB_CW_EVENT_MASK, &event_mask);
+        auto subscribe_for_prop_cookie =
+            xcb_change_window_attributes(connection_.get(), req->requestor, XCB_CW_EVENT_MASK, &event_mask);
+
         std::uint32_t size_hint = std::min(size, static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max()));
         // initiate multistage transfer with INCR
         auto change_prop_cookie = xcb_change_property_checked(
@@ -405,7 +428,11 @@ std::optional<bool> Clipper::Transfer(xcb_selection_request_event_t* req)
     std::size_t chunk_size = std::min(max_transfer_size_, size - transferred);
     chunk_size -= (8 * chunk_size) % format;
     auto change_prop_cookie = xcb_change_property_checked(
-        connection_.get(), XCB_PROP_MODE_REPLACE, req->requestor, req->property, type, format, 8 * chunk_size / format, data + transferred);
+        connection_.get(),
+        XCB_PROP_MODE_REPLACE,
+        req->requestor,
+        req->property,
+        type, format, 8 * chunk_size / format, data + transferred);
     if (!Await(change_prop_cookie, ErrorLogger{"Failed to change property"}))
     {
         return {};
@@ -420,7 +447,8 @@ std::optional<bool> Clipper::Transfer(xcb_selection_request_event_t* req)
 
     // unsubscribe from notifications about requestor's properties, transfer finished, don't need them any more
     xcb_event_mask_t event_mask = XCB_EVENT_MASK_NO_EVENT;
-    auto unsubscribe_from_prop_cookie = xcb_change_window_attributes(connection_.get(), req->requestor, XCB_CW_EVENT_MASK, &event_mask);
+    auto unsubscribe_from_prop_cookie =
+        xcb_change_window_attributes(connection_.get(), req->requestor, XCB_CW_EVENT_MASK, &event_mask);
     Await(unsubscribe_from_prop_cookie, ErrorLogger{"Failed to unsubscribe from property changes"});
     return true;
 }
@@ -437,14 +465,16 @@ void Clipper::ProceedRequest(xcb_selection_request_event_t* req, Convert&& conve
     {
         if constexpr (std::is_same_v<ConvertedDataView, std::invoke_result_t<Convert, xcb_selection_request_event_t*>>)
         {
-            transfer = transfers_.emplace(key, TransferState{std::forward<Convert>(convert)(req), TransferState::TRANSFER_PREINIT}).first;
+            transfer = transfers_.emplace(
+                key, TransferState{std::forward<Convert>(convert)(req), TransferState::TRANSFER_PREINIT}).first;
         }
         else
         {
             auto res = std::forward<Convert>(convert)(req);
             if (res)
             {
-                transfer = transfers_.emplace(key, TransferState{std::move(*res), TransferState::TRANSFER_PREINIT}).first;
+                transfer =
+                    transfers_.emplace(key, TransferState{std::move(*res), TransferState::TRANSFER_PREINIT}).first;
             }
             else
             {
@@ -500,7 +530,8 @@ void Clipper::RegisterHandlers(std::unordered_map<std::string_view, xcb_atom_t>&
         req->property = req->property == XCB_ATOM_NONE ? req->target : req->property; // support obsolete clients
         auto convert = [this](xcb_selection_request_event_t*)
         {
-            return ConvertedDataView{XCB_ATOM_INTEGER, 32, reinterpret_cast<char*>(&ownership_timestamp_), sizeof(ownership_timestamp_)};
+            return ConvertedDataView{
+                XCB_ATOM_INTEGER, 32, reinterpret_cast<char*>(&ownership_timestamp_), sizeof(ownership_timestamp_)};
         };
         ProceedRequest(req, convert);
     };
@@ -513,7 +544,11 @@ void Clipper::RegisterHandlers(std::unordered_map<std::string_view, xcb_atom_t>&
             xcb_atom_t* targets = new xcb_atom_t[handlers_.size()];
             std::ranges::transform(handlers_, targets, [](auto& p) { return p.first; });
             std::sort(targets, targets + handlers_.size());
-            return ConvertedData{XCB_ATOM_ATOM, 32, std::unique_ptr<char[]>{reinterpret_cast<char*>(targets)}, sizeof(xcb_atom_t) * handlers_.size()};
+            return ConvertedData{
+                XCB_ATOM_ATOM,
+                32,
+                std::unique_ptr<char[]>{reinterpret_cast<char*>(targets)},
+                sizeof(xcb_atom_t) * handlers_.size()};
         };
         ProceedRequest(req, Cached(convert));
     };
@@ -528,7 +563,8 @@ void Clipper::RegisterHandlers(std::unordered_map<std::string_view, xcb_atom_t>&
 
         auto convert = [this](xcb_selection_request_event_t* req) -> std::optional<ConvertedData>
         {
-            xcb_get_property_cookie_t prop_cookie = xcb_get_property(connection_.get(), 0, req->requestor, req->property, XCB_ATOM_ANY, 0, 0);
+            xcb_get_property_cookie_t prop_cookie =
+                xcb_get_property(connection_.get(), 0, req->requestor, req->property, XCB_ATOM_ANY, 0, 0);
 
             auto subreqs_info = Await(
                 prop_cookie,
@@ -564,7 +600,8 @@ void Clipper::RegisterHandlers(std::unordered_map<std::string_view, xcb_atom_t>&
                 auto init_subreq = [this, subreqs, req](int i, xcb_atom_t next_target, xcb_atom_t next_prop)
                 {
                     if (subreqs[i + 1] == XCB_ATOM_NONE || // subrequest's property can't be None
-                        (subreqs[i] == req->target && transfers_.contains({req->requestor, subreqs[i + 1]}))) // loop detection
+                        (subreqs[i] == req->target &&
+                            transfers_.contains({req->requestor, subreqs[i + 1]}))) // loop detection
                     {
                         subreqs[i + 1] = XCB_ATOM_NONE;
                     }
