@@ -6,6 +6,13 @@
 
 #include "clipper.hpp"
 
+enum ErrorType : int
+{
+    USAGE_ERROR = 1,
+    FILE_ERROR,
+    RUNTIME_ERROR
+};
+
 int main(int argc, char* argv[])
 {
     static const char* usage =
@@ -25,7 +32,7 @@ int main(int argc, char* argv[])
                 if (str != nullptr)
                 {
                     std::fputs(usage, stderr);
-                    return 1;
+                    return USAGE_ERROR;
                 }
                 str = argv[optind - 1];
                 break;
@@ -38,7 +45,7 @@ int main(int argc, char* argv[])
             default:
             {
                 std::fputs(usage, stderr);
-                return 1;
+                return USAGE_ERROR;
             }
         }
     }
@@ -46,7 +53,7 @@ int main(int argc, char* argv[])
     if (str == nullptr)
     {
         std::fputs(usage, stderr);
-        return 1;
+        return USAGE_ERROR;
     }
 
     std::string_view data;
@@ -57,7 +64,7 @@ int main(int argc, char* argv[])
         if (file_name == nullptr)
         {
             std::perror("realpath");
-            return 1;
+            return FILE_ERROR;
         }
         data = file_name;
     }
@@ -74,6 +81,8 @@ int main(int argc, char* argv[])
     catch (std::exception& e)
     {
         std::fprintf(stderr, "%s\n", e.what());
+        std::free(file_name);
+        return RUNTIME_ERROR;
     }
 
     std::free(file_name);
