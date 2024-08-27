@@ -22,8 +22,9 @@ struct PairHash
     std::size_t operator()(std::pair<xcb_window_t, xcb_atom_t> p) const noexcept;
 };
 
-struct Logger
+class Logger
 {
+public:
     explicit Logger(std::source_location loc = std::source_location::current()) noexcept : loc_{std::move(loc)}
     {
     }
@@ -31,17 +32,22 @@ struct Logger
     template <class... Args>
     void operator()(Args&&... args) const;
 
+private:
     std::source_location loc_;
 };
 
-struct ErrorLogger : Logger
+class ErrorLogger : public Logger
 {
-    explicit ErrorLogger(std::string_view msg) noexcept : msg_{msg}
+public:
+    explicit ErrorLogger(std::string_view msg, std::source_location loc = std::source_location::current()) noexcept :
+        Logger{loc},
+        msg_{msg}
     {
     }
 
     void operator()(xcb_generic_error_t* err) const;
 
+private:
     std::string_view msg_;
 };
 
