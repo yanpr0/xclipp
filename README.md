@@ -24,13 +24,19 @@ Supported file formats:
 Copy `STRING` into clipboard, can then be retrieved with Ctrl+V or context menu paste:
 
 ```
-xclipp STRING
+xclipp [--] STRING
 ```
 
 Copy file `FILE` into clipboard, can then be retrieved with Ctrl+V or context menu paste (wherever a file is expected, e.g. file managers, messengers that support sending files, etc.):
 
 ```
 xclipp -f [--] FILE
+```
+
+Copy file's `FILE` content into clipboard, can then be retrieved with Ctrl+V or context menu paste:
+
+```
+xclipp -c [--] FILE
 ```
 
 ### Requirements
