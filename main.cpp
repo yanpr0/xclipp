@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <stdexcept>
 #include <string_view>
 #include <unistd.h>
@@ -13,60 +14,60 @@ enum ErrorType : int
     RUNTIME_ERROR
 };
 
-int main(int argc, char* argv[])
-{
-    static const char* usage =
+static const char* usage =
         "Usage:\n"
         "\txclipp STRING\n"
-        "\txclipp -f FILE\n";
+        "\txclipp -f [--] FILE\n";
 
+int main(int argc, char* argv[])
+{
     bool is_file = false;
     char* str = nullptr;
-    int opt = 0;
-    while ((opt = getopt(argc, argv, "-f")) != -1)
+
+    if (argc == 2)
     {
-        switch (opt)
+        str = argv[1];
+    }
+    else
+    {
+        int opt = 0;
+        while ((opt = getopt(argc, argv, "f")) != -1)
         {
-            case 1:
+            switch (opt)
             {
-                if (str != nullptr)
+                case 'f':
+                {
+                    is_file = true;
+                    break;
+                }
+                default:
                 {
                     std::fputs(usage, stderr);
                     return USAGE_ERROR;
                 }
-                str = argv[optind - 1];
-                break;
-            }
-            case 'f':
-            {
-                is_file = true;
-                break;
-            }
-            default:
-            {
-                std::fputs(usage, stderr);
-                return USAGE_ERROR;
             }
         }
-    }
-
-    if (str == nullptr)
-    {
-        std::fputs(usage, stderr);
-        return USAGE_ERROR;
+        if (optind == argc)
+        {
+            std::fputs("No STRING or FILE was provided\n", stderr);
+            std::fputs(usage, stderr);
+            return USAGE_ERROR;
+        }
+        str = argv[optind];
     }
 
     std::string_view data;
-    char* file_name = nullptr;
+
+    std::unique_ptr<char, decltype(&std::free)> file_name{nullptr, std::free};
     if (is_file)
     {
-        file_name = realpath(str, NULL);
+        file_name.reset(realpath(str, nullptr));
         if (file_name == nullptr)
         {
-            std::perror("realpath");
+            std::perror(str);
             return FILE_ERROR;
         }
-        data = file_name;
+        data = file_name.get();
     }
     else
     {
@@ -81,11 +82,8 @@ int main(int argc, char* argv[])
     catch (std::exception& e)
     {
         std::fprintf(stderr, "%s\n", e.what());
-        std::free(file_name);
         return RUNTIME_ERROR;
     }
-
-    std::free(file_name);
 
     return 0;
 }

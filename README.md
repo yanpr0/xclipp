@@ -27,10 +27,10 @@ Copy `STRING` into clipboard, can then be retrieved with Ctrl+V or context menu 
 xclipp STRING
 ```
 
-Copy file `FILE_NAME` into clipboard, can then be retrieved with Ctrl+V or context menu paste (wherever a file is expected, e.g. file managers, messengers that support sending files, etc.):
+Copy file `FILE` into clipboard, can then be retrieved with Ctrl+V or context menu paste (wherever a file is expected, e.g. file managers, messengers that support sending files, etc.):
 
 ```
-xclipp -f FILE_NAME
+xclipp -f [--] FILE
 ```
 
 ### Requirements

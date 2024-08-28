@@ -149,7 +149,7 @@ private:
     };
 
     std::string_view data_;
-    std::unique_ptr<xcb_connection_t, void(*)(xcb_connection_t*)> connection_;
+    std::unique_ptr<xcb_connection_t, decltype(&xcb_disconnect)> connection_;
     xcb_window_t owner_;
     xcb_timestamp_t ownership_timestamp_;
     xcb_atom_t clipboard_atom_;
