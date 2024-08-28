@@ -109,6 +109,8 @@ int main(int argc, char* argv[])
             std::perror(str);
             return FILE_ERROR;
         }
+        std::unique_ptr<int, void(*)(int*)> fd_ptr{&fd, [](int* ptr) { close(*ptr); }};
+
         struct stat st;
         if (fstat(fd, &st) == -1)
         {
