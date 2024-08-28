@@ -7,8 +7,8 @@
 #include <deque>
 #include <format>
 #include <functional>
+#include <limits>
 #include <memory>
-#include <numeric>
 #include <optional>
 #include <source_location>
 #include <stdexcept>

@@ -8,8 +8,8 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <limits>
 #include <memory>
-#include <numeric>
 #include <optional>
 #include <source_location>
 #include <string_view>
